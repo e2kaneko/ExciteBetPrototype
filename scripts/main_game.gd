@@ -17,6 +17,10 @@ const GOAL_MARGIN_MIN := 100.0
 
 const DIRT_TRACK_TOP := 60.0
 const DIRT_TRACK_BOTTOM := 340.0
+const START_LINE_OFFSET := 35.0
+const GOAL_LABEL_OFFSET := 20.0
+const GOAL_LABEL_WIDTH := 40.0
+const GOAL_LABEL_FONT_SIZE := 28
 
 # 元のデザイン（横幅450pxの画面でトラック長400px・速度60px/sを想定）との
 # 速度バランスを保つための基準値。画面幅が変わっても所要時間が大きく変わらないよう
@@ -45,6 +49,7 @@ func _ready() -> void:
 	randomize()
 	result_label.text = ""
 	_calculate_track_bounds()
+	_spawn_track_lines()
 	_spawn_bikes()
 	_spawn_track_items()
 
@@ -78,6 +83,23 @@ func _setup_background(viewport_size: Vector2) -> void:
 	dirt_track.position = Vector2(0.0, DIRT_TRACK_TOP)
 	dirt_track.size = Vector2(viewport_size.x, DIRT_TRACK_BOTTOM - DIRT_TRACK_TOP)
 
+func _spawn_track_lines() -> void:
+	var num_lanes := 3
+	var lines_height: float = LANE_SPACING * (num_lanes - 1) + 60.0
+
+	var start_line := ColorRect.new()
+	start_line.color = Color.WHITE
+	start_line.size = Vector2(5, lines_height)
+	start_line.position = Vector2(start_x + START_LINE_OFFSET, LANE_START_Y - 30)
+	add_child(start_line)
+
+	for i in range(1, num_lanes):
+		var divider := ColorRect.new()
+		divider.color = Color.WHITE
+		divider.size = Vector2(goal_x - start_x, 2)
+		divider.position = Vector2(start_x, LANE_START_Y + LANE_SPACING * i - LANE_SPACING / 2.0 - 1.0)
+		add_child(divider)
+
 func _spawn_bikes() -> void:
 	var colors := [Bike.BikeColor.RED, Bike.BikeColor.BLUE, Bike.BikeColor.YELLOW]
 	var balanced_speed: float = REFERENCE_BASE_SPEED * (track_length / REFERENCE_TRACK_LENGTH)
@@ -91,6 +113,32 @@ func _spawn_bikes() -> void:
 	goal_line.size = Vector2(5, LANE_SPACING * (colors.size() - 1) + 60)
 	goal_line.position = Vector2(goal_x, LANE_START_Y - 30)
 	add_child(goal_line)
+
+	_spawn_goal_label()
+
+func _spawn_goal_label() -> void:
+	var goal_label := Label.new()
+	goal_label.text = "G\nO\nA\nL"
+	goal_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	goal_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	goal_label.add_theme_font_size_override("font_size", GOAL_LABEL_FONT_SIZE)
+	goal_label.add_theme_color_override("font_color", Color.WHITE)
+	goal_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	goal_label.add_theme_constant_override("outline_size", 4)
+
+	# レトロなギザギザ文字に見えるよう、アンチエイリアスとヒンティングを切った
+	# フォントを複製して適用する（画像フォント等の追加アセットは使わない）。
+	var base_font: Font = ThemeDB.fallback_font
+	if base_font is FontFile:
+		var retro_font: FontFile = (base_font as FontFile).duplicate()
+		retro_font.antialiasing = TextServer.FONT_ANTIALIASING_NONE
+		retro_font.hinting = TextServer.HINTING_NONE
+		retro_font.oversampling = 1.0
+		goal_label.add_theme_font_override("font", retro_font)
+
+	goal_label.size = Vector2(GOAL_LABEL_WIDTH, DIRT_TRACK_BOTTOM - DIRT_TRACK_TOP)
+	goal_label.position = Vector2(goal_x + GOAL_LABEL_OFFSET, DIRT_TRACK_TOP)
+	add_child(goal_label)
 
 func _create_bike(color: Bike.BikeColor, speed: float, lane_y: float) -> Bike:
 	var bike: Bike = BIKE_SCENE.instantiate()
