@@ -1,17 +1,21 @@
 extends Area2D
 class_name Bike
 
-enum BikeColor { RED, BLUE, YELLOW }
+enum BikeColor { RED, BLUE, YELLOW, GREEN, BLACK }
 
 const COLOR_NAMES := {
 	BikeColor.RED: "赤",
 	BikeColor.BLUE: "青",
 	BikeColor.YELLOW: "黄",
+	BikeColor.GREEN: "緑",
+	BikeColor.BLACK: "黒",
 }
 const COLOR_VALUES := {
 	BikeColor.RED: Color.RED,
 	BikeColor.BLUE: Color.BLUE,
 	BikeColor.YELLOW: Color.YELLOW,
+	BikeColor.GREEN: Color.GREEN,
+	BikeColor.BLACK: Color.BLACK,
 }
 
 const MUD_DISTANCE := 5.0

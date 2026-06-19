@@ -16,11 +16,19 @@ const GOAL_MARGIN_RATIO := 0.05
 const GOAL_MARGIN_MIN := 100.0
 
 const DIRT_TRACK_TOP := 60.0
-const DIRT_TRACK_BOTTOM := 340.0
+const DIRT_TRACK_BOTTOM := 540.0
 const START_LINE_OFFSET := 35.0
 const GOAL_LABEL_OFFSET := 20.0
 const GOAL_LABEL_WIDTH := 40.0
 const GOAL_LABEL_FONT_SIZE := 28
+
+const BIKE_COLORS := [
+	Bike.BikeColor.RED,
+	Bike.BikeColor.BLUE,
+	Bike.BikeColor.YELLOW,
+	Bike.BikeColor.GREEN,
+	Bike.BikeColor.BLACK,
+]
 
 # 元のデザイン（横幅450pxの画面でトラック長400px・速度60px/sを想定）との
 # 速度バランスを保つための基準値。画面幅が変わっても所要時間が大きく変わらないよう
@@ -108,7 +116,7 @@ func _setup_background(viewport_size: Vector2) -> void:
 	dirt_track.size = Vector2(viewport_size.x, DIRT_TRACK_BOTTOM - DIRT_TRACK_TOP)
 
 func _spawn_track_lines() -> void:
-	var num_lanes := 3
+	var num_lanes := BIKE_COLORS.size()
 	var lines_height: float = LANE_SPACING * (num_lanes - 1) + 60.0
 
 	var start_line := ColorRect.new()
@@ -125,7 +133,7 @@ func _spawn_track_lines() -> void:
 		add_child(divider)
 
 func _spawn_bikes() -> void:
-	var colors := [Bike.BikeColor.RED, Bike.BikeColor.BLUE, Bike.BikeColor.YELLOW]
+	var colors := BIKE_COLORS
 	var balanced_speed: float = REFERENCE_BASE_SPEED * (track_length / REFERENCE_TRACK_LENGTH)
 	for i in colors.size():
 		var lane_y: float = LANE_START_Y + i * LANE_SPACING
