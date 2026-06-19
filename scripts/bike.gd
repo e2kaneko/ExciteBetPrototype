@@ -31,6 +31,7 @@ var slope_multiplier: float = 1.0
 var ground_y: float = 0.0
 var velocity_y: float = 0.0
 var finished: bool = false
+var race_started: bool = false
 
 signal finished_race(bike)
 
@@ -41,7 +42,7 @@ func _ready() -> void:
 	ground_y = position.y
 
 func _physics_process(delta: float) -> void:
-	if finished:
+	if finished or not race_started:
 		return
 
 	var move_amount: float = base_speed * effect_multiplier * slope_multiplier * delta
@@ -76,6 +77,9 @@ func enter_slope() -> void:
 
 func exit_slope() -> void:
 	slope_multiplier = 1.0
+
+func start_race() -> void:
+	race_started = true
 
 func get_color_name() -> String:
 	return COLOR_NAMES.get(bike_color, "")

@@ -6,34 +6,73 @@ const BOOST_SCENE := preload("res://scenes/boost_item.tscn")
 const JUMP_PAD_SCENE := preload("res://scenes/jump_pad.tscn")
 const SLOPE_SCENE := preload("res://scenes/slope.tscn")
 
-const TRACK_LENGTH := 400.0
-const START_X := 50.0
 const LANE_SPACING := 100.0
 const LANE_START_Y := 100.0
 const SPAWN_MARGIN := 40.0
+
+const START_MARGIN_RATIO := 0.05
+const START_MARGIN_MIN := 50.0
+const GOAL_MARGIN_RATIO := 0.05
+const GOAL_MARGIN_MIN := 100.0
+
+# 元のデザイン（横幅450pxの画面でトラック長400px・速度60px/sを想定）との
+# 速度バランスを保つための基準値。画面幅が変わっても所要時間が大きく変わらないよう
+# トラック長に比例してbase_speedを再計算する。
+const REFERENCE_TRACK_LENGTH := 400.0
+const REFERENCE_BASE_SPEED := 60.0
 
 const OBSTACLES_PER_LANE := 4
 const BOOSTS_PER_LANE := 3
 const JUMP_PADS_PER_LANE := 2
 const SLOPES_PER_LANE := 2
 
-@onready var result_label: Label = $ResultLabel
+@onready var result_label: Label = $UILayer/ResultLabel
+@onready var start_label: Label = $UILayer/StartLabel
 
 var bikes: Array[Bike] = []
 var race_finished: bool = false
+var race_started: bool = false
+var start_x: float = 0.0
+var goal_x: float = 0.0
+var track_length: float = 0.0
 
 func _ready() -> void:
 	randomize()
 	result_label.text = ""
+	_calculate_track_bounds()
 	_spawn_bikes()
 	_spawn_track_items()
 
+func _unhandled_input(event: InputEvent) -> void:
+	if race_started:
+		return
+	var is_space_press: bool = event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_SPACE
+	var is_left_click: bool = event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT
+	if is_space_press or is_left_click:
+		_start_race()
+
+func _start_race() -> void:
+	race_started = true
+	start_label.visible = false
+	for bike in bikes:
+		bike.start_race()
+
+func _calculate_track_bounds() -> void:
+	var screen_width: float = get_viewport_rect().size.x
+	start_x = max(screen_width * START_MARGIN_RATIO, START_MARGIN_MIN)
+	goal_x = screen_width - max(screen_width * GOAL_MARGIN_RATIO, GOAL_MARGIN_MIN)
+	if goal_x <= start_x:
+		goal_x = start_x + 1.0
+	track_length = goal_x - start_x
+
 func _spawn_bikes() -> void:
 	var colors := [Bike.BikeColor.RED, Bike.BikeColor.BLUE, Bike.BikeColor.YELLOW]
+	var balanced_speed: float = REFERENCE_BASE_SPEED * (track_length / REFERENCE_TRACK_LENGTH)
 	for i in colors.size():
 		var bike: Bike = BIKE_SCENE.instantiate()
 		bike.bike_color = colors[i]
-		bike.position = Vector2(START_X, LANE_START_Y + i * LANE_SPACING)
+		bike.base_speed = balanced_speed
+		bike.position = Vector2(start_x, LANE_START_Y + i * LANE_SPACING)
 		bike.finished_race.connect(_on_bike_finished)
 		add_child(bike)
 		bikes.append(bike)
@@ -41,46 +80,40 @@ func _spawn_bikes() -> void:
 	var goal_line := ColorRect.new()
 	goal_line.color = Color.WHITE
 	goal_line.size = Vector2(5, LANE_SPACING * (colors.size() - 1) + 60)
-	goal_line.position = Vector2(START_X + TRACK_LENGTH, LANE_START_Y - 30)
+	goal_line.position = Vector2(goal_x, LANE_START_Y - 30)
 	add_child(goal_line)
 
 func _spawn_track_items() -> void:
+	var spawn_min: float = start_x + SPAWN_MARGIN
+	var spawn_max: float = goal_x - SPAWN_MARGIN
+	if spawn_min >= spawn_max:
+		spawn_min = start_x
+		spawn_max = goal_x
+
 	for i in bikes.size():
 		var lane_y: float = LANE_START_Y + i * LANE_SPACING
 		for j in OBSTACLES_PER_LANE:
 			var obstacle := OBSTACLE_SCENE.instantiate()
-			obstacle.position = Vector2(
-				randf_range(START_X + SPAWN_MARGIN, START_X + TRACK_LENGTH - SPAWN_MARGIN),
-				lane_y
-			)
+			obstacle.position = Vector2(randf_range(spawn_min, spawn_max), lane_y)
 			add_child(obstacle)
 		for j in BOOSTS_PER_LANE:
 			var boost := BOOST_SCENE.instantiate()
-			boost.position = Vector2(
-				randf_range(START_X + SPAWN_MARGIN, START_X + TRACK_LENGTH - SPAWN_MARGIN),
-				lane_y
-			)
+			boost.position = Vector2(randf_range(spawn_min, spawn_max), lane_y)
 			add_child(boost)
 		for j in JUMP_PADS_PER_LANE:
 			var jump_pad := JUMP_PAD_SCENE.instantiate()
-			jump_pad.position = Vector2(
-				randf_range(START_X + SPAWN_MARGIN, START_X + TRACK_LENGTH - SPAWN_MARGIN),
-				lane_y
-			)
+			jump_pad.position = Vector2(randf_range(spawn_min, spawn_max), lane_y)
 			add_child(jump_pad)
 		for j in SLOPES_PER_LANE:
 			var slope := SLOPE_SCENE.instantiate()
-			slope.position = Vector2(
-				randf_range(START_X + SPAWN_MARGIN, START_X + TRACK_LENGTH - SPAWN_MARGIN),
-				lane_y
-			)
+			slope.position = Vector2(randf_range(spawn_min, spawn_max), lane_y)
 			add_child(slope)
 
 func _physics_process(_delta: float) -> void:
 	if race_finished:
 		return
 	for bike in bikes:
-		if not bike.finished and bike.position.x >= START_X + TRACK_LENGTH:
+		if not bike.finished and bike.position.x >= goal_x:
 			bike.finished = true
 			bike.finished_race.emit(bike)
 
