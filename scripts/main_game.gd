@@ -33,14 +33,17 @@ const BOOSTS_PER_LANE := 3
 const JUMP_PADS_PER_LANE := 2
 const SLOPES_PER_LANE := 2
 
+enum GameState { START_WAIT, RACING, FINISHED }
+
 @onready var result_label: Label = $UILayer/ResultLabel
 @onready var start_label: Label = $UILayer/StartLabel
+@onready var reset_label: Label = $UILayer/ResetLabel
 @onready var grass_background: ColorRect = $GrassBackground
 @onready var dirt_track: ColorRect = $DirtTrack
 
 var bikes: Array[Bike] = []
-var race_finished: bool = false
-var race_started: bool = false
+var track_items: Array[Node] = []
+var state: GameState = GameState.START_WAIT
 var start_x: float = 0.0
 var goal_x: float = 0.0
 var track_length: float = 0.0
@@ -54,18 +57,39 @@ func _ready() -> void:
 	_spawn_track_items()
 
 func _unhandled_input(event: InputEvent) -> void:
-	if race_started:
-		return
 	var is_space_press: bool = event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_SPACE
 	var is_left_click: bool = event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT
-	if is_space_press or is_left_click:
-		_start_race()
+
+	match state:
+		GameState.START_WAIT:
+			if is_space_press or is_left_click:
+				_start_race()
+		GameState.FINISHED:
+			if is_left_click:
+				_reset_game()
 
 func _start_race() -> void:
-	race_started = true
+	state = GameState.RACING
 	start_label.visible = false
 	for bike in bikes:
 		bike.start_race()
+
+func _reset_game() -> void:
+	result_label.text = ""
+	reset_label.visible = false
+
+	for item in track_items:
+		if is_instance_valid(item):
+			item.queue_free()
+	track_items.clear()
+	_spawn_track_items()
+
+	for i in bikes.size():
+		var lane_y: float = LANE_START_Y + i * LANE_SPACING
+		bikes[i].reset(Vector2(start_x, lane_y))
+
+	start_label.visible = true
+	state = GameState.START_WAIT
 
 func _calculate_track_bounds() -> void:
 	var viewport_size: Vector2 = get_viewport_rect().size
@@ -162,21 +186,25 @@ func _spawn_track_items() -> void:
 			var obstacle := OBSTACLE_SCENE.instantiate()
 			obstacle.position = Vector2(randf_range(spawn_min, spawn_max), lane_y)
 			add_child(obstacle)
+			track_items.append(obstacle)
 		for j in BOOSTS_PER_LANE:
 			var boost := BOOST_SCENE.instantiate()
 			boost.position = Vector2(randf_range(spawn_min, spawn_max), lane_y)
 			add_child(boost)
+			track_items.append(boost)
 		for j in JUMP_PADS_PER_LANE:
 			var jump_pad := JUMP_PAD_SCENE.instantiate()
 			jump_pad.position = Vector2(randf_range(spawn_min, spawn_max), lane_y)
 			add_child(jump_pad)
+			track_items.append(jump_pad)
 		for j in SLOPES_PER_LANE:
 			var slope := SLOPE_SCENE.instantiate()
 			slope.position = Vector2(randf_range(spawn_min, spawn_max), lane_y)
 			add_child(slope)
+			track_items.append(slope)
 
 func _physics_process(_delta: float) -> void:
-	if race_finished:
+	if state != GameState.RACING:
 		return
 	for bike in bikes:
 		if not bike.finished and bike.position.x >= goal_x:
@@ -184,7 +212,8 @@ func _physics_process(_delta: float) -> void:
 			bike.finished_race.emit(bike)
 
 func _on_bike_finished(bike: Bike) -> void:
-	if race_finished:
+	if state != GameState.RACING:
 		return
-	race_finished = true
+	state = GameState.FINISHED
 	result_label.text = "1着：%sのバイク！" % bike.get_color_name()
+	reset_label.visible = true
