@@ -15,6 +15,9 @@ const START_MARGIN_MIN := 50.0
 const GOAL_MARGIN_RATIO := 0.05
 const GOAL_MARGIN_MIN := 100.0
 
+const DIRT_TRACK_TOP := 60.0
+const DIRT_TRACK_BOTTOM := 340.0
+
 # 元のデザイン（横幅450pxの画面でトラック長400px・速度60px/sを想定）との
 # 速度バランスを保つための基準値。画面幅が変わっても所要時間が大きく変わらないよう
 # トラック長に比例してbase_speedを再計算する。
@@ -28,6 +31,8 @@ const SLOPES_PER_LANE := 2
 
 @onready var result_label: Label = $UILayer/ResultLabel
 @onready var start_label: Label = $UILayer/StartLabel
+@onready var grass_background: ColorRect = $GrassBackground
+@onready var dirt_track: ColorRect = $DirtTrack
 
 var bikes: Array[Bike] = []
 var race_finished: bool = false
@@ -58,23 +63,27 @@ func _start_race() -> void:
 		bike.start_race()
 
 func _calculate_track_bounds() -> void:
-	var screen_width: float = get_viewport_rect().size.x
+	var viewport_size: Vector2 = get_viewport_rect().size
+	var screen_width: float = viewport_size.x
 	start_x = max(screen_width * START_MARGIN_RATIO, START_MARGIN_MIN)
 	goal_x = screen_width - max(screen_width * GOAL_MARGIN_RATIO, GOAL_MARGIN_MIN)
 	if goal_x <= start_x:
 		goal_x = start_x + 1.0
 	track_length = goal_x - start_x
+	_setup_background(viewport_size)
+
+func _setup_background(viewport_size: Vector2) -> void:
+	grass_background.position = Vector2.ZERO
+	grass_background.size = viewport_size
+	dirt_track.position = Vector2(0.0, DIRT_TRACK_TOP)
+	dirt_track.size = Vector2(viewport_size.x, DIRT_TRACK_BOTTOM - DIRT_TRACK_TOP)
 
 func _spawn_bikes() -> void:
 	var colors := [Bike.BikeColor.RED, Bike.BikeColor.BLUE, Bike.BikeColor.YELLOW]
 	var balanced_speed: float = REFERENCE_BASE_SPEED * (track_length / REFERENCE_TRACK_LENGTH)
 	for i in colors.size():
-		var bike: Bike = BIKE_SCENE.instantiate()
-		bike.bike_color = colors[i]
-		bike.base_speed = balanced_speed
-		bike.position = Vector2(start_x, LANE_START_Y + i * LANE_SPACING)
-		bike.finished_race.connect(_on_bike_finished)
-		add_child(bike)
+		var lane_y: float = LANE_START_Y + i * LANE_SPACING
+		var bike: Bike = _create_bike(colors[i], balanced_speed, lane_y)
 		bikes.append(bike)
 
 	var goal_line := ColorRect.new()
@@ -82,6 +91,15 @@ func _spawn_bikes() -> void:
 	goal_line.size = Vector2(5, LANE_SPACING * (colors.size() - 1) + 60)
 	goal_line.position = Vector2(goal_x, LANE_START_Y - 30)
 	add_child(goal_line)
+
+func _create_bike(color: Bike.BikeColor, speed: float, lane_y: float) -> Bike:
+	var bike: Bike = BIKE_SCENE.instantiate()
+	bike.bike_color = color
+	bike.base_speed = speed
+	bike.position = Vector2(start_x, lane_y)
+	bike.finished_race.connect(_on_bike_finished)
+	add_child(bike)
+	return bike
 
 func _spawn_track_items() -> void:
 	var spawn_min: float = start_x + SPAWN_MARGIN
