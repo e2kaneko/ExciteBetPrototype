@@ -3,6 +3,8 @@ extends Node2D
 const BIKE_SCENE := preload("res://scenes/bike.tscn")
 const OBSTACLE_SCENE := preload("res://scenes/obstacle.tscn")
 const BOOST_SCENE := preload("res://scenes/boost_item.tscn")
+const JUMP_PAD_SCENE := preload("res://scenes/jump_pad.tscn")
+const SLOPE_SCENE := preload("res://scenes/slope.tscn")
 
 const TRACK_LENGTH := 400.0
 const START_X := 50.0
@@ -12,6 +14,8 @@ const SPAWN_MARGIN := 40.0
 
 const OBSTACLES_PER_LANE := 4
 const BOOSTS_PER_LANE := 3
+const JUMP_PADS_PER_LANE := 2
+const SLOPES_PER_LANE := 2
 
 @onready var result_label: Label = $ResultLabel
 
@@ -57,6 +61,20 @@ func _spawn_track_items() -> void:
 				lane_y
 			)
 			add_child(boost)
+		for j in JUMP_PADS_PER_LANE:
+			var jump_pad := JUMP_PAD_SCENE.instantiate()
+			jump_pad.position = Vector2(
+				randf_range(START_X + SPAWN_MARGIN, START_X + TRACK_LENGTH - SPAWN_MARGIN),
+				lane_y
+			)
+			add_child(jump_pad)
+		for j in SLOPES_PER_LANE:
+			var slope := SLOPE_SCENE.instantiate()
+			slope.position = Vector2(
+				randf_range(START_X + SPAWN_MARGIN, START_X + TRACK_LENGTH - SPAWN_MARGIN),
+				lane_y
+			)
+			add_child(slope)
 
 func _physics_process(_delta: float) -> void:
 	if race_finished:
